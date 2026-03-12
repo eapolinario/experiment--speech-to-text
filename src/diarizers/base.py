@@ -25,3 +25,16 @@ class DiarizationBackend(ABC):
     @abstractmethod
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
         """Return a list of speaker segments for the given audio."""
+
+    def transcribe_with_speakers(
+        self, audio: np.ndarray, sample_rate: int
+    ) -> list[tuple[str, str]]:
+        """Return (speaker, text) pairs for backends that combine ASR + diarization.
+
+        The default implementation raises :exc:`NotImplementedError`. Override in
+        backends (e.g. WhisperX) that handle transcription internally.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support transcribe_with_speakers(). "
+            "Use diarize() instead."
+        )

@@ -26,18 +26,30 @@ class WhisperXBackend(DiarizationBackend):
 
         self._device = device
         self._hf_token = hf_token
+
+        # Use lower precision on CUDA for better performance; float32 elsewhere.
+        if "cuda" in device.lower():
+            compute_type = "float16"
+        else:
+            compute_type = "float32"
+
         self._model = whisperx.load_model(
-            self._asr_model_name, device=device, compute_type="float32"
+            self._asr_model_name, device=device, compute_type=compute_type
         )
 
-    def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
-        assert self._model is not None, "Call load() first"
+    def _run_pipeline(self, audio: np.ndarray) -> dict:
+        """Run the full WhisperX pipeline and return the result with speaker labels."""
         import whisperx
 
-        # WhisperX expects float32 numpy array
+        if self._model is None:
+            raise RuntimeError("Call load() first")
+
+        # WhisperX expects a float32 numpy array.
+        audio = np.asarray(audio, dtype=np.float32)
+
         result = self._model.transcribe(audio, batch_size=16)
 
-        # Align for word-level timestamps
+        # Align for word-level timestamps.
         align_model, metadata = whisperx.load_align_model(
             language_code=result["language"], device=self._device
         )
@@ -45,12 +57,15 @@ class WhisperXBackend(DiarizationBackend):
             result["segments"], align_model, metadata, audio, self._device
         )
 
-        # Run diarization and assign speakers to words
+        # Run diarization and assign speakers to words.
         diarize_model = whisperx.DiarizationPipeline(
             use_auth_token=self._hf_token, device=self._device
         )
         diarize_segments = diarize_model(audio)
-        result = whisperx.assign_word_speakers(diarize_segments, result)
+        return whisperx.assign_word_speakers(diarize_segments, result)
+
+    def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
+        result = self._run_pipeline(audio)
 
         segments = []
         for seg in result["segments"]:
@@ -67,23 +82,7 @@ class WhisperXBackend(DiarizationBackend):
 
         This skips the separate ASR step since WhisperX already transcribes.
         """
-        assert self._model is not None, "Call load() first"
-        import whisperx
-
-        result = self._model.transcribe(audio, batch_size=16)
-
-        align_model, metadata = whisperx.load_align_model(
-            language_code=result["language"], device=self._device
-        )
-        result = whisperx.align(
-            result["segments"], align_model, metadata, audio, self._device
-        )
-
-        diarize_model = whisperx.DiarizationPipeline(
-            use_auth_token=self._hf_token, device=self._device
-        )
-        diarize_segments = diarize_model(audio)
-        result = whisperx.assign_word_speakers(diarize_segments, result)
+        result = self._run_pipeline(audio)
 
         pairs = []
         for seg in result["segments"]:

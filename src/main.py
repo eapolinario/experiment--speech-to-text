@@ -14,7 +14,7 @@ SAMPLE_RATE = 16_000
 ASR_MODEL = "openai/whisper-large-v3-turbo"
 
 
-def load_models(hf_token: str):
+def load_models(hf_token: str | None, backend_name: str):
     if torch.cuda.is_available():
         device = "cuda"
     elif torch.backends.mps.is_available():
@@ -72,7 +72,7 @@ def transcribe_segments(
     return results
 
 
-def parse_args():
+def parse_args(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(description="Speech-to-text with speaker diarization")
     parser.add_argument(
         "--backend",
@@ -80,15 +80,21 @@ def parse_args():
         default="pyannote",
         help="Diarization backend to use (default: pyannote)",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main():
     args = parse_args()
     load_dotenv()
     hf_token = os.environ.get("HF_TOKEN")
-    if not hf_token:
-        raise RuntimeError("HF_TOKEN not set. Add it to your .env file.")
+
+    # Only pyannote and whisperx backends use Hugging Face gated models.
+    _HF_TOKEN_REQUIRED_BACKENDS = {"pyannote", "whisperx"}
+    if args.backend in _HF_TOKEN_REQUIRED_BACKENDS and not hf_token:
+        raise RuntimeError(
+            f"HF_TOKEN not set. The '{args.backend}' backend requires a HuggingFace token. "
+            "Add it to your .env file."
+        )
 
     print(f"Using diarization backend: {args.backend}")
     asr, diarizer = load_models(hf_token, args.backend)

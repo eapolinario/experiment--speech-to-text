@@ -27,14 +27,20 @@ class DiariZenBackend(DiarizationBackend):
         self._pipeline.to(device)
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
-        assert self._pipeline is not None, "Call load() first"
+        if self._pipeline is None:
+            raise RuntimeError("Call load() first")
         import tempfile
+        import os
         import soundfile as sf
 
         # DiariZen expects a file path, so write a temp WAV file.
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            sf.write(f.name, audio, sample_rate)
-            result = self._pipeline(f.name)
+            tmp_path = f.name
+        try:
+            sf.write(tmp_path, audio, sample_rate)
+            result = self._pipeline(tmp_path)
+        finally:
+            os.unlink(tmp_path)
 
         segments = []
         for turn, _, speaker in result.itertracks(yield_label=True):
