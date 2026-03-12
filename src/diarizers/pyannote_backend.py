@@ -26,6 +26,6 @@ class PyannoteBackend(DiarizationBackend):
         result = self._pipeline({"waveform": waveform, "sample_rate": sample_rate})
 
         segments = []
-        for turn, _, speaker in result.itertracks(yield_label=True):
+        for turn, _, speaker in result.speaker_diarization.itertracks(yield_label=True):
             segments.append(DiarizationSegment(speaker=speaker, start=turn.start, end=turn.end))
         return segments
