@@ -9,7 +9,7 @@ from transformers import pipeline as hf_pipeline
 
 SAMPLE_RATE = 16_000
 DIARIZATION_MODEL = "pyannote/speaker-diarization-3.1"
-ASR_MODEL = "openai/whisper-base"
+ASR_MODEL = "openai/whisper-large-v3-turbo"
 
 
 def load_models(hf_token: str):
