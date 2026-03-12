@@ -69,10 +69,10 @@ pip install .[all]        # everything
 ### Run
 
 ```bash
-just run                        # default (pyannote)
-just run -- --backend diarizen  # DiariZen
-just run -- --backend nemo      # NVIDIA Sortformer
-just run -- --backend whisperx  # WhisperX (handles ASR internally)
+just run              # default (pyannote)
+just run diarizen     # DiariZen
+just run nemo         # NVIDIA Sortformer
+just run whisperx     # WhisperX (handles ASR internally)
 ```
 
 ## Commands
