@@ -25,13 +25,24 @@
         };
 
         # DiariZen requires torch~=2.1 and is not on PyPI (installed from GitHub).
+        # torch 2.1.x has no Python 3.13 wheels, so we force Python 3.12 here.
         # This shell uses a separate venv under backends/diarizen/.
         devShells.diarizen = pkgs.mkShell {
           packages = commonPackages;
-          shellHook = ''
-            ${libPathHook}
-            export UV_PROJECT_ENVIRONMENT="$PWD/backends/diarizen/.venv"
-          '';
+          shellHook =
+            let diarizenLibPath = pkgs.lib.makeLibraryPath [
+              pkgs.portaudio
+              pkgs.stdenv.cc.cc.lib  # libstdc++.so.6 for pip-installed C extension wheels
+              pkgs.zlib               # libz.so.1
+            ];
+            in ''
+              ${if pkgs.stdenv.isDarwin
+                 then "export DYLD_LIBRARY_PATH=${diarizenLibPath}:$DYLD_LIBRARY_PATH"
+                 else "export LD_LIBRARY_PATH=${diarizenLibPath}:$LD_LIBRARY_PATH"}
+              # uv manages Python 3.11 itself; torch 2.1.x has no cp312/cp313 wheels.
+              export UV_PYTHON="cpython-3.11"
+              export UV_PROJECT_ENVIRONMENT="$PWD/backends/diarizen/.venv"
+            '';
         };
 
         # Whisperx requires torch~=2.8 which conflicts with torch>=2.10 in the

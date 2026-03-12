@@ -1,16 +1,16 @@
 [project]
 name = "diarizen-backend"
 version = "0.1.0"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.12"
 dependencies = [
-  "transformers>=4.40",
-  "torch~=2.1",
-  "torchaudio~=2.1",
+  "torch>=2.1,<2.2",
+  "torchaudio>=2.1,<2.2",
   "sounddevice>=0.4",
-  "pyannote.audio>=3.1",
+  "pyannote.audio>=3.1,<4.0",
   "python-dotenv>=1.0",
   "soundfile",
   "diarizen",
+  "numpy<2.0",  # pyannote 3.x uses np.NaN removed in NumPy 2.0
   # diarizen runtime deps missing from its pyproject.toml
   "toml",
   "h5py",
