@@ -60,10 +60,9 @@ just sync
 To install an optional backend:
 
 ```bash
-pip install .[diarizen]   # DiariZen
-pip install .[nemo]       # NVIDIA NeMo Sortformer
-pip install .[whisperx]   # WhisperX
-pip install .[all]        # everything
+just install diarizen   # DiariZen
+just install nemo       # NVIDIA NeMo Sortformer
+just install whisperx   # WhisperX
 ```
 
 ### Run
@@ -80,6 +79,7 @@ just run whisperx     # WhisperX (handles ASR internally)
 | Command | Description |
 |---|---|
 | `just run` | Start the REPL |
+| `just install <backend>` | Install an optional backend |
 | `just test` | Run tests |
 | `just test-cov` | Run tests with coverage |
 | `just sync` | Install/update dependencies |

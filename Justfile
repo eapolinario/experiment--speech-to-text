@@ -11,3 +11,6 @@ test-cov:
 
 sync:
     uv sync --all-groups
+
+install extra:
+    uv sync --extra {{extra}}
