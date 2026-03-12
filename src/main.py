@@ -13,7 +13,12 @@ ASR_MODEL = "openai/whisper-large-v3-turbo"
 
 
 def load_models(hf_token: str):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
     print(f"Loading models on {device} (first run will download weights)...")
     asr = hf_pipeline("automatic-speech-recognition", model=ASR_MODEL, device=device)
     diarizer = Pipeline.from_pretrained(DIARIZATION_MODEL, token=hf_token)
@@ -38,7 +43,7 @@ def transcribe_segments(audio: np.ndarray, asr, diarizer) -> list[tuple[str, str
     diarization = diarizer({"waveform": waveform, "sample_rate": SAMPLE_RATE})
 
     results = []
-    for turn, _, speaker in diarization.speaker_diarization.itertracks(yield_label=True):
+    for turn, _, speaker in diarization.itertracks(yield_label=True):
         start = int(turn.start * SAMPLE_RATE)
         end = int(turn.end * SAMPLE_RATE)
         segment = audio[start:end]
