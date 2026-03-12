@@ -10,6 +10,12 @@ dependencies = [
   "python-dotenv>=1.0",
 ]
 
+[project.optional-dependencies]
+diarizen = ["diarizen", "soundfile"]
+nemo = ["nemo_toolkit[asr]", "soundfile"]
+whisperx = ["whisperx"]
+all = ["diarizen", "nemo_toolkit[asr]", "whisperx", "soundfile"]
+
 [dependency-groups]
 dev = [
   "pytest>=8",

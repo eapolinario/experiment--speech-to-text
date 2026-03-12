@@ -5,7 +5,7 @@ A Python REPL that records microphone input, identifies speakers via diarization
 ## How it works
 
 1. Records audio until you press Enter
-2. Runs [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) to split audio by speaker
+2. Runs speaker diarization to split audio by speaker
 3. Transcribes each segment with [openai/whisper-large-v3-turbo](https://huggingface.co/openai/whisper-large-v3-turbo)
 4. Prints labeled output: `SPEAKER_00: ...`, `SPEAKER_01: ...`
 
@@ -18,6 +18,16 @@ Both models automatically use the best available hardware:
 | CPU | Any | Fallback when no GPU is detected |
 
 Device selection is automatic — no configuration needed.
+
+## Diarization backends
+
+| Backend | Model | Strengths | Install extra |
+|---|---|---|---|
+| `pyannote` (default) | [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) | Best balance of accuracy and ease of use | *(included)* |
+| `diarizen` | [BUT-FIT/diarizen-wavlm-large-s80-md-v2](https://huggingface.co/BUT-FIT/diarizen-wavlm-large-s80-md-v2) | Excels with 5+ speakers, efficient (pruned WavLM) | `pip install .[diarizen]` |
+| `nemo` | [nvidia/diar_sortformer_4spk-v1](https://huggingface.co/nvidia/diar_sortformer_4spk-v1) | End-to-end Sortformer, strong on meetings | `pip install .[nemo]` |
+| `nemo-streaming` | [nvidia/diar_streaming_sortformer_4spk-v2.1](https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2.1) | Real-time streaming diarization | `pip install .[nemo]` |
+| `whisperx` | [WhisperX](https://github.com/m-bain/whisperX) | Combined ASR+diarization with word-level speaker labels | `pip install .[whisperx]` |
 
 ## Setup
 
@@ -37,10 +47,22 @@ nix develop
 just sync
 ```
 
+To install an optional backend:
+
+```bash
+pip install .[diarizen]   # DiariZen
+pip install .[nemo]       # NVIDIA NeMo Sortformer
+pip install .[whisperx]   # WhisperX
+pip install .[all]        # everything
+```
+
 ### Run
 
 ```bash
-just run
+just run                        # default (pyannote)
+just run -- --backend diarizen  # DiariZen
+just run -- --backend nemo      # NVIDIA Sortformer
+just run -- --backend whisperx  # WhisperX (handles ASR internally)
 ```
 
 ## Commands
