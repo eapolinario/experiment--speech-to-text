@@ -3,7 +3,7 @@ default: run
 run backend="pyannote":
     #!/usr/bin/env bash
     if [ "{{backend}}" = "whisperx" ]; then
-        PYTHONPATH=. uv run --project backends/whisperx src/main.py --backend whisperx
+        nix develop .#whisperx --command env PYTHONPATH=. uv run --project backends/whisperx src/main.py --backend whisperx
     else
         PYTHONPATH=. uv run src/main.py --backend {{backend}}
     fi
