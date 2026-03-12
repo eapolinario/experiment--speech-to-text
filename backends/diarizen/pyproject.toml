@@ -1,0 +1,25 @@
+[project]
+name = "diarizen-backend"
+version = "0.1.0"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+  "transformers>=4.40",
+  "torch~=2.1",
+  "torchaudio~=2.1",
+  "sounddevice>=0.4",
+  "pyannote.audio>=3.1",
+  "python-dotenv>=1.0",
+  "soundfile",
+  "diarizen",
+  # diarizen runtime deps missing from its pyproject.toml
+  "toml",
+  "h5py",
+  "librosa",
+  "accelerate",
+]
+
+[tool.uv.sources]
+diarizen = { git = "https://github.com/BUTSpeechFIT/DiariZen" }
+
+[tool.uv]
+environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]

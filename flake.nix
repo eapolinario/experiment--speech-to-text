@@ -24,6 +24,16 @@
           shellHook = libPathHook;
         };
 
+        # DiariZen requires torch~=2.1 and is not on PyPI (installed from GitHub).
+        # This shell uses a separate venv under backends/diarizen/.
+        devShells.diarizen = pkgs.mkShell {
+          packages = commonPackages;
+          shellHook = ''
+            ${libPathHook}
+            export UV_PROJECT_ENVIRONMENT="$PWD/backends/diarizen/.venv"
+          '';
+        };
+
         # Whisperx requires torch~=2.8 which conflicts with torch>=2.10 in the
         # main environment. This shell uses a separate venv under backends/whisperx/.
         # ffmpeg_7 is added because torchcodec 0.7 (compatible with torch 2.8) only
