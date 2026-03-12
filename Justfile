@@ -1,7 +1,7 @@
 default: run
 
 run backend="pyannote":
-    uv run src/main.py --backend {{backend}}
+    PYTHONPATH=. uv run src/main.py --backend {{backend}}
 
 test:
     uv run pytest

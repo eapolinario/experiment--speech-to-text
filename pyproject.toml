@@ -1,7 +1,7 @@
 [project]
 name = "experiment-text-to-speech"
 version = "0.1.0"
-requires-python = ">=3.12"
+requires-python = ">=3.10,<3.14"
 dependencies = [
   "transformers>=4.40",
   "torch>=2.2",
@@ -11,10 +11,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-diarizen = ["diarizen", "soundfile"]
+# TODO: restore diarizen extra once the package is available on PyPI
+diarizen = ["soundfile"]
 nemo = ["nemo_toolkit[asr]", "soundfile"]
 whisperx = ["whisperx"]
-all = ["diarizen", "nemo_toolkit[asr]", "whisperx", "soundfile"]
+# TODO: add diarizen back once it's available on PyPI
+all = ["nemo_toolkit[asr]", "whisperx", "soundfile"]
 
 [dependency-groups]
 dev = [
