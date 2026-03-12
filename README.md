@@ -9,6 +9,8 @@ A Python REPL that records microphone input, identifies speakers via diarization
 3. Transcribes each segment with [openai/whisper-large-v3-turbo](https://huggingface.co/openai/whisper-large-v3-turbo)
 4. Prints labeled output: `SPEAKER_00: ...`, `SPEAKER_01: ...`
 
+Both models run on CUDA if available, falling back to CPU otherwise.
+
 ## Setup
 
 ### Prerequisites
