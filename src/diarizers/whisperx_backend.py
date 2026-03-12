@@ -8,8 +8,12 @@ Requires: pip install whisperx
 """
 
 import numpy as np
+import pandas as pd
 
 from src.diarizers.base import DiarizationBackend, DiarizationSegment
+from src.diarizers.speaker_matching import match_speakers
+
+CHUNK_DURATION = 30  # seconds per diarization chunk to stay within GPU memory
 
 
 class WhisperXBackend(DiarizationBackend):
@@ -40,6 +44,30 @@ class WhisperXBackend(DiarizationBackend):
             self._asr_model_name, device=device, compute_type=compute_type
         )
 
+    def _diarize_chunked(self, audio: np.ndarray, diarize_model) -> pd.DataFrame:
+        """Run diarization in 30s chunks and reconcile speaker labels across chunks."""
+        chunk_samples = CHUNK_DURATION * 16_000  # whisperx always uses 16kHz
+        global_registry: list[tuple[str, np.ndarray]] = []
+        frames = []
+
+        for chunk_start in range(0, len(audio), chunk_samples):
+            chunk = audio[chunk_start : chunk_start + chunk_samples]
+            df, embeddings = diarize_model(chunk, return_embeddings=True)
+
+            if embeddings:
+                label_map = match_speakers(
+                    {spk: np.array(emb) for spk, emb in embeddings.items()},
+                    global_registry,
+                )
+                df["speaker"] = df["speaker"].map(label_map)
+
+            offset = chunk_start / 16_000
+            df["start"] += offset
+            df["end"] += offset
+            frames.append(df)
+
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
     def _run_pipeline(self, audio: np.ndarray) -> dict:
         """Run the full WhisperX pipeline and return the result with speaker labels."""
         import whisperx
@@ -50,7 +78,7 @@ class WhisperXBackend(DiarizationBackend):
         # WhisperX expects a float32 numpy array.
         audio = np.asarray(audio, dtype=np.float32)
 
-        result = self._model.transcribe(audio, batch_size=16)
+        result = self._model.transcribe(audio, batch_size=8)
 
         # Align for word-level timestamps.
         align_model, metadata = whisperx.load_align_model(
@@ -60,11 +88,11 @@ class WhisperXBackend(DiarizationBackend):
             result["segments"], align_model, metadata, audio, self._device
         )
 
-        # Run diarization and assign speakers to words.
+        # Run diarization in chunks and assign speakers to words.
         diarize_model = whisperx.diarize.DiarizationPipeline(
             token=self._hf_token, device=self._device
         )
-        diarize_segments = diarize_model(audio)
+        diarize_segments = self._diarize_chunked(audio, diarize_model)
         return whisperx.assign_word_speakers(diarize_segments, result)
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
