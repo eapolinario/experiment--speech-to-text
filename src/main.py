@@ -14,8 +14,13 @@ SAMPLE_RATE = 16_000
 ASR_MODEL = "openai/whisper-large-v3-turbo"
 
 
-def load_models(hf_token: str, backend_name: str = "pyannote"):
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+def load_models(hf_token: str):
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
     print(f"Loading models on {device} (first run will download weights)...")
 
     backend = get_backend(backend_name)

@@ -9,7 +9,15 @@ A Python REPL that records microphone input, identifies speakers via diarization
 3. Transcribes each segment with [openai/whisper-large-v3-turbo](https://huggingface.co/openai/whisper-large-v3-turbo)
 4. Prints labeled output: `SPEAKER_00: ...`, `SPEAKER_01: ...`
 
-Both models run on CUDA if available, falling back to CPU otherwise.
+Both models automatically use the best available hardware:
+
+| Backend | Hardware | Notes |
+|---|---|---|
+| [CUDA](https://developer.nvidia.com/cuda-toolkit) | NVIDIA GPUs | Preferred when available |
+| [MPS](https://developer.apple.com/metal/) | Apple Silicon (M1/M2/M3/M4) | Metal Performance Shaders via macOS |
+| CPU | Any | Fallback when no GPU is detected |
+
+Device selection is automatic — no configuration needed.
 
 ## Diarization backends
 
