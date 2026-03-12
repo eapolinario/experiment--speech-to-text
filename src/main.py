@@ -1,24 +1,33 @@
+import argparse
 import os
 
 import numpy as np
 import sounddevice as sd
 import torch
 from dotenv import load_dotenv
-from pyannote.audio import Pipeline
 from transformers import pipeline as hf_pipeline
 
+from src.diarizers import BACKENDS, get_backend
+from src.diarizers.base import DiarizationBackend
+
 SAMPLE_RATE = 16_000
-DIARIZATION_MODEL = "pyannote/speaker-diarization-3.1"
 ASR_MODEL = "openai/whisper-large-v3-turbo"
 
 
-def load_models(hf_token: str):
+def load_models(hf_token: str, backend_name: str = "pyannote"):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Loading models on {device} (first run will download weights)...")
-    asr = hf_pipeline("automatic-speech-recognition", model=ASR_MODEL, device=device)
-    diarizer = Pipeline.from_pretrained(DIARIZATION_MODEL, token=hf_token)
-    diarizer.to(torch.device(device))
-    return asr, diarizer
+
+    backend = get_backend(backend_name)
+
+    # WhisperX handles ASR internally, so skip loading a separate ASR model.
+    if backend_name == "whisperx":
+        asr = None
+    else:
+        asr = hf_pipeline("automatic-speech-recognition", model=ASR_MODEL, device=device)
+
+    backend.load(device, hf_token)
+    return asr, backend
 
 
 def record_until_enter() -> np.ndarray:
@@ -33,33 +42,51 @@ def record_until_enter() -> np.ndarray:
     return np.concatenate(frames).flatten()
 
 
-def transcribe_segments(audio: np.ndarray, asr, diarizer) -> list[tuple[str, str]]:
-    waveform = torch.tensor(audio).unsqueeze(0)  # [1, samples]
-    diarization = diarizer({"waveform": waveform, "sample_rate": SAMPLE_RATE})
+def transcribe_segments(
+    audio: np.ndarray, asr, diarizer: DiarizationBackend, backend_name: str
+) -> list[tuple[str, str]]:
+    # WhisperX does ASR + diarization together.
+    if backend_name == "whisperx":
+        return diarizer.transcribe_with_speakers(audio, SAMPLE_RATE)
+
+    segments = diarizer.diarize(audio, SAMPLE_RATE)
 
     results = []
-    for turn, _, speaker in diarization.speaker_diarization.itertracks(yield_label=True):
-        start = int(turn.start * SAMPLE_RATE)
-        end = int(turn.end * SAMPLE_RATE)
-        segment = audio[start:end]
+    for seg in segments:
+        start = int(seg.start * SAMPLE_RATE)
+        end = int(seg.end * SAMPLE_RATE)
+        chunk = audio[start:end]
 
-        if len(segment) < SAMPLE_RATE * 0.1:  # skip segments shorter than 100ms
+        if len(chunk) < SAMPLE_RATE * 0.1:
             continue
 
-        text = asr({"raw": segment, "sampling_rate": SAMPLE_RATE})["text"].strip()
+        text = asr({"raw": chunk, "sampling_rate": SAMPLE_RATE})["text"].strip()
         if text:
-            results.append((speaker, text))
+            results.append((seg.speaker, text))
 
     return results
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Speech-to-text with speaker diarization")
+    parser.add_argument(
+        "--backend",
+        choices=sorted(BACKENDS.keys()),
+        default="pyannote",
+        help="Diarization backend to use (default: pyannote)",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     load_dotenv()
     hf_token = os.environ.get("HF_TOKEN")
     if not hf_token:
         raise RuntimeError("HF_TOKEN not set. Add it to your .env file.")
 
-    asr, diarizer = load_models(hf_token)
+    print(f"Using diarization backend: {args.backend}")
+    asr, diarizer = load_models(hf_token, args.backend)
     print("Ready. Press Enter to start recording. Ctrl-C or 'quit' to exit.\n")
 
     while True:
@@ -73,7 +100,7 @@ def main():
             break
 
         audio = record_until_enter()
-        segments = transcribe_segments(audio, asr, diarizer)
+        segments = transcribe_segments(audio, asr, diarizer, args.backend)
 
         print()
         for speaker, text in segments:
