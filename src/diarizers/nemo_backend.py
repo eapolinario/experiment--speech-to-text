@@ -31,19 +31,22 @@ class NeMoSortformerBackend(DiarizationBackend):
             self._model = self._model.cuda()
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
-        assert self._model is not None, "Call load() first"
+        if self._model is None:
+            raise RuntimeError("Call load() first")
         import tempfile
+        import os
         import soundfile as sf
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            sf.write(f.name, audio, sample_rate)
-            temp_path = f.name
+            tmp_path = f.name
+        try:
+            sf.write(tmp_path, audio, sample_rate)
 
-        # Sortformer returns per-frame speaker probabilities; we threshold and
-        # convert to segments.
-        import torch
-
-        preds = self._model.diarize(audio=[temp_path], batch_size=1)
+            # Sortformer `diarize` already returns speaker turn segments; we just
+            # wrap them into `DiarizationSegment` objects.
+            preds = self._model.diarize(audio=[tmp_path], batch_size=1)
+        finally:
+            os.unlink(tmp_path)
 
         segments = []
         if preds and len(preds) > 0:

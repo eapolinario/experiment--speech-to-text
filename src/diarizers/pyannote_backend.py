@@ -20,7 +20,8 @@ class PyannoteBackend(DiarizationBackend):
         self._pipeline.to(torch.device(device))
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
-        assert self._pipeline is not None, "Call load() first"
+        if self._pipeline is None:
+            raise RuntimeError("Call load() first")
         waveform = torch.tensor(audio).unsqueeze(0)
         result = self._pipeline({"waveform": waveform, "sample_rate": sample_rate})
 
