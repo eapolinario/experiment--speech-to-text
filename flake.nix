@@ -16,7 +16,9 @@
           packages = [
             pkgs.uv
             pkgs.just
+            pkgs.portaudio
           ];
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.portaudio ];
         };
       });
 }
