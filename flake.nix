@@ -18,7 +18,11 @@
             pkgs.just
             pkgs.portaudio
           ];
-          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.portaudio ];
+          shellHook =
+            let libPath = pkgs.lib.makeLibraryPath [ pkgs.portaudio ];
+            in if pkgs.stdenv.isDarwin
+               then "export DYLD_LIBRARY_PATH=${libPath}:$DYLD_LIBRARY_PATH"
+               else "export LD_LIBRARY_PATH=${libPath}:$LD_LIBRARY_PATH";
         };
       });
 }
