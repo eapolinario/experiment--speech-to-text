@@ -34,9 +34,9 @@ class WhisperXBackend(DiarizationBackend):
         self._device = device
         self._hf_token = hf_token
 
-        # Use lower precision on CUDA for better performance; float32 elsewhere.
+        # int8_float16 uses significantly less VRAM than float16 on CUDA.
         if "cuda" in device.lower():
-            compute_type = "float16"
+            compute_type = "int8_float16"
         else:
             compute_type = "float32"
 
@@ -75,10 +75,16 @@ class WhisperXBackend(DiarizationBackend):
         if self._model is None:
             raise RuntimeError("Call load() first")
 
+        import gc
+        import torch
+
         # WhisperX expects a float32 numpy array.
         audio = np.asarray(audio, dtype=np.float32)
 
-        result = self._model.transcribe(audio, batch_size=8)
+        result = self._model.transcribe(audio, batch_size=4)
+
+        # Free GPU memory from transcription before loading the alignment model.
+        torch.cuda.empty_cache()
 
         # Align for word-level timestamps.
         align_model, metadata = whisperx.load_align_model(
@@ -87,12 +93,19 @@ class WhisperXBackend(DiarizationBackend):
         result = whisperx.align(
             result["segments"], align_model, metadata, audio, self._device
         )
+        del align_model
+        gc.collect()
+        torch.cuda.empty_cache()
 
         # Run diarization in chunks and assign speakers to words.
         diarize_model = whisperx.diarize.DiarizationPipeline(
             token=self._hf_token, device=self._device
         )
         diarize_segments = self._diarize_chunked(audio, diarize_model)
+        del diarize_model
+        gc.collect()
+        torch.cuda.empty_cache()
+
         return whisperx.assign_word_speakers(diarize_segments, result)
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
