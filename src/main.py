@@ -13,10 +13,11 @@ ASR_MODEL = "openai/whisper-large-v3-turbo"
 
 
 def load_models(hf_token: str):
-    print("Loading models (first run will download weights)...")
-    asr = hf_pipeline("automatic-speech-recognition", model=ASR_MODEL, device="cpu")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Loading models on {device} (first run will download weights)...")
+    asr = hf_pipeline("automatic-speech-recognition", model=ASR_MODEL, device=device)
     diarizer = Pipeline.from_pretrained(DIARIZATION_MODEL, token=hf_token)
-    diarizer.to(torch.device("cpu"))
+    diarizer.to(torch.device(device))
     return asr, diarizer
 
 
