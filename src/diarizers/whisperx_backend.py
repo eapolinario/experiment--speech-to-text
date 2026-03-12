@@ -61,7 +61,7 @@ class WhisperXBackend(DiarizationBackend):
         )
 
         # Run diarization and assign speakers to words.
-        diarize_model = whisperx.DiarizationPipeline(
+        diarize_model = whisperx.diarize.DiarizationPipeline(
             use_auth_token=self._hf_token, device=self._device
         )
         diarize_segments = diarize_model(audio)

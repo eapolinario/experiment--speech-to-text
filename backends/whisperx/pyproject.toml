@@ -10,3 +10,9 @@ dependencies = [
   "python-dotenv>=1.0",
   "whisperx>=3.8",
 ]
+
+[tool.uv]
+# torchcodec 0.7 matches torch~=2.8; 0.10 (pulled in transitively) requires torch>=2.10
+override-dependencies = [
+  "torchcodec==0.7.*",
+]
