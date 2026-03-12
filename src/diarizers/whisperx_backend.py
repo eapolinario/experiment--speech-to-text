@@ -24,6 +24,9 @@ class WhisperXBackend(DiarizationBackend):
     def load(self, device: str, hf_token: str | None = None) -> None:
         import whisperx
 
+        if device == "mps":
+            raise RuntimeError("WhisperX is not supported on MPS. Use a CUDA device or CPU.")
+
         self._device = device
         self._hf_token = hf_token
 
