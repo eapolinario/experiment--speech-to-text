@@ -1,12 +1,12 @@
 [project]
 name = "experiment-text-to-speech"
 version = "0.1.0"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.13,<3.14"
 dependencies = [
   "transformers>=4.40",
-  "torch>=2.2",
+  "torch>=2.10",
   "sounddevice>=0.4",
-  "pyannote.audio>=3.1",
+  "pyannote.audio>=4.0",
   "python-dotenv>=1.0",
 ]
 
@@ -14,9 +14,13 @@ dependencies = [
 # TODO: restore diarizen extra once the package is available on PyPI
 diarizen = ["soundfile"]
 nemo = ["nemo_toolkit[asr]", "soundfile"]
-whisperx = ["whisperx"]
+# whisperx requires torch~=2.8 which conflicts with torch>=2.10; use backends/whisperx/ instead
 # TODO: add diarizen back once it's available on PyPI
-all = ["nemo_toolkit[asr]", "whisperx", "soundfile"]
+all = ["nemo_toolkit[asr]", "soundfile"]
+
+[tool.uv]
+# Exclude Windows: ctranslate2 has no cp313 Windows wheels, which blocks resolution
+environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 
 [dependency-groups]
 dev = [

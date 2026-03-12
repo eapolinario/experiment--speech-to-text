@@ -1,7 +1,12 @@
 default: run
 
 run backend="pyannote":
-    PYTHONPATH=. uv run src/main.py --backend {{backend}}
+    #!/usr/bin/env bash
+    if [ "{{backend}}" = "whisperx" ]; then
+        PYTHONPATH=. uv run --project backends/whisperx src/main.py --backend whisperx
+    else
+        PYTHONPATH=. uv run src/main.py --backend {{backend}}
+    fi
 
 test:
     uv run pytest
@@ -11,6 +16,9 @@ test-cov:
 
 sync:
     uv sync --all-groups
+
+sync-whisperx:
+    uv sync --project backends/whisperx
 
 install extra:
     uv sync --extra {{extra}}
