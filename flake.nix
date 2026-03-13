@@ -17,6 +17,8 @@
         libPathHook = if pkgs.stdenv.isDarwin
           then "export DYLD_LIBRARY_PATH=${libPath}:$DYLD_LIBRARY_PATH"
           else "export LD_LIBRARY_PATH=${libPath}:$LD_LIBRARY_PATH";
+        # Separate pkgs instance that permits unfree packages (needed for nvidia-x11).
+        unfreePkgs = import nixpkgs { inherit system; config.allowUnfree = true; };
       in
       {
         devShells.default = pkgs.mkShell {
@@ -34,6 +36,7 @@
               pkgs.portaudio
               pkgs.stdenv.cc.cc.lib  # libstdc++.so.6 for pip-installed C extension wheels
               pkgs.zlib               # libz.so.1
+              unfreePkgs.linuxPackages.nvidia_x11  # libcuda.so.1 for CUDA-enabled torch wheels
             ];
             in ''
               ${if pkgs.stdenv.isDarwin

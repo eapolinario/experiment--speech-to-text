@@ -24,6 +24,14 @@ diarizen = { git = "https://github.com/BUTSpeechFIT/DiariZen" }
 # DiariZen bundles a patched pyannote-audio fork that adds `config` and
 # `seg_duration` to SpeakerDiarization.__init__; the PyPI releases don't have this.
 pyannote-audio = { git = "https://github.com/BUTSpeechFIT/DiariZen", subdirectory = "pyannote-audio" }
+# PyPI only ships CPU-only torch wheels; CUDA-enabled wheels are on the PyTorch index.
+torch = { index = "pytorch-cu121" }
+torchaudio = { index = "pytorch-cu121" }
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
 
 [tool.uv]
 environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
