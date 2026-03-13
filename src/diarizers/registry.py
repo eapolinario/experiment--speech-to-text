@@ -7,22 +7,6 @@ BACKENDS: dict[str, tuple[str, str]] = {
         "src.diarizers.pyannote_backend",
         "PyannoteBackend",
     ),
-    "diarizen": (
-        "src.diarizers.diarizen_backend",
-        "DiariZenBackend",
-    ),
-    "nemo": (
-        "src.diarizers.nemo_backend",
-        "NeMoSortformerBackend",
-    ),
-    "nemo-streaming": (
-        "src.diarizers.nemo_backend",
-        "NeMoSortformerBackend",
-    ),
-    "whisperx": (
-        "src.diarizers.whisperx_backend",
-        "WhisperXBackend",
-    ),
 }
 
 
@@ -38,6 +22,4 @@ def get_backend(name: str) -> DiarizationBackend:
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)
 
-    if name == "nemo-streaming":
-        return cls(streaming=True)
     return cls()

@@ -10,17 +10,13 @@ dependencies = [
   "python-dotenv>=1.0",
 ]
 
-[project.optional-dependencies]
-# TODO: restore diarizen extra once the package is available on PyPI
-diarizen = ["soundfile"]
-nemo = ["nemo_toolkit[asr]", "soundfile"]
-# whisperx requires torch~=2.8 which conflicts with torch>=2.10; use backends/whisperx/ instead
-# TODO: add diarizen back once it's available on PyPI
-all = ["nemo_toolkit[asr]", "soundfile"]
 
 [tool.uv]
 # Exclude Windows: no cp313 wheels for several audio/ML dependencies
 environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [dependency-groups]
 dev = [

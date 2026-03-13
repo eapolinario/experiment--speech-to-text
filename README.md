@@ -19,15 +19,9 @@ Both models automatically use the best available hardware:
 
 Device selection is automatic — no configuration needed.
 
-## Diarization backends
+## Diarization
 
-| Backend | Model | Strengths | Install extra |
-|---|---|---|---|
-| `pyannote` (default) | [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1) | Best balance of accuracy and ease of use | *(included)* |
-| `diarizen` | [BUT-FIT/diarizen-wavlm-large-s80-md-v2](https://huggingface.co/BUT-FIT/diarizen-wavlm-large-s80-md-v2) | Excels with 5+ speakers, efficient (pruned WavLM) | `pip install .[diarizen]` |
-| `nemo` | [nvidia/diar_sortformer_4spk-v1](https://huggingface.co/nvidia/diar_sortformer_4spk-v1) | End-to-end Sortformer, strong on meetings | `pip install .[nemo]` |
-| `nemo-streaming` | [nvidia/diar_streaming_sortformer_4spk-v2.1](https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2.1) | Real-time streaming diarization | `pip install .[nemo]` |
-| `whisperx` | [WhisperX](https://github.com/m-bain/whisperX) | Combined ASR+diarization with word-level speaker labels | `pip install .[whisperx]` |
+Speaker diarization uses [pyannote/speaker-diarization-3.1](https://huggingface.co/pyannote/speaker-diarization-3.1).
 
 ## Setup
 
@@ -57,21 +51,10 @@ nix develop
 just sync
 ```
 
-To install an optional backend:
-
-```bash
-just install diarizen   # DiariZen
-just install nemo       # NVIDIA NeMo Sortformer
-just install whisperx   # WhisperX
-```
-
 ### Run
 
 ```bash
-just run              # default (pyannote)
-just run diarizen     # DiariZen
-just run nemo         # NVIDIA Sortformer
-just run whisperx     # WhisperX (handles ASR internally)
+just run
 ```
 
 ## Commands
@@ -79,7 +62,6 @@ just run whisperx     # WhisperX (handles ASR internally)
 | Command | Description |
 |---|---|
 | `just run` | Start the REPL |
-| `just install <backend>` | Install an optional backend |
 | `just test` | Run tests |
 | `just test-cov` | Run tests with coverage |
 | `just sync` | Install/update dependencies |
