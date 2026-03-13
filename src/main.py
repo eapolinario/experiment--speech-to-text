@@ -10,6 +10,7 @@ import torch
 from dotenv import load_dotenv
 from diart import SpeakerDiarization, SpeakerDiarizationConfig
 from diart.inference import StreamingInference
+from diart.models import EmbeddingModel, SegmentationModel
 from diart.sources import FileAudioSource
 from transformers import pipeline as hf_pipeline
 
@@ -43,11 +44,15 @@ class Diarizer:
         self._pipeline: SpeakerDiarization | None = None
 
     def load(self, device: str, hf_token: str | None = None) -> None:
-        import huggingface_hub
-
-        if hf_token:
-            huggingface_hub.login(token=hf_token, add_to_git_credential=False)
-        config = SpeakerDiarizationConfig(device=torch.device(device))
+        config = SpeakerDiarizationConfig(
+            segmentation=SegmentationModel.from_pretrained(
+                "pyannote/segmentation", use_hf_token=hf_token
+            ),
+            embedding=EmbeddingModel.from_pretrained(
+                "pyannote/embedding", use_hf_token=hf_token
+            ),
+            device=torch.device(device),
+        )
         self._pipeline = SpeakerDiarization(config)
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
