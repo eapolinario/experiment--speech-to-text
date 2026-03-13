@@ -1,17 +1,60 @@
 import os
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
 import sounddevice as sd
 import torch
 from dotenv import load_dotenv
+from pyannote.audio import Pipeline
 from transformers import pipeline as hf_pipeline
-
-from src.diarizers import get_backend
-from src.diarizers.base import DiarizationBackend
 
 SAMPLE_RATE = 16_000
 ASR_MODEL = "openai/whisper-large-v3-turbo"
+DIARIZER_MODEL = "pyannote/speaker-diarization-community-1"
+
+
+@dataclass
+class DiarizationSegment:
+    """A single speaker turn with start/end times."""
+
+    speaker: str
+    start: float
+    end: float
+
+
+class Diarizer:
+    """Wraps pyannote/speaker-diarization-community-1.
+
+    The full audio is passed to the pipeline in one call so that pyannote's
+    internal global clustering produces coherent speaker labels. Manual
+    chunking is intentionally avoided: splitting audio before the clustering
+    step forces independent per-chunk label assignment and undermines speaker
+    consistency across the recording.
+
+    For very long recordings that cause GPU OOM, pass device="cpu" rather than
+    re-introducing chunking.
+    """
+
+    def __init__(self) -> None:
+        self._pipeline: Pipeline | None = None
+
+    def load(self, device: str, hf_token: str | None = None) -> None:
+        self._pipeline = Pipeline.from_pretrained(DIARIZER_MODEL, token=hf_token)
+        self._pipeline.to(torch.device(device))
+
+    def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
+        if self._pipeline is None:
+            raise RuntimeError("Call load() first")
+
+        audio_np = np.ascontiguousarray(audio, dtype=np.float32)
+        waveform = torch.from_numpy(audio_np).unsqueeze(0)
+        result = self._pipeline({"waveform": waveform, "sample_rate": sample_rate})
+
+        return [
+            DiarizationSegment(speaker=speaker, start=turn.start, end=turn.end)
+            for turn, _, speaker in result.speaker_diarization.itertracks(yield_label=True)
+        ]
 
 
 def load_models(hf_token: str | None):
@@ -29,9 +72,9 @@ def load_models(hf_token: str | None):
         device=device,
         generate_kwargs={"language": "en", "task": "transcribe"},
     )
-    backend = get_backend("pyannote")
-    backend.load(device, hf_token)
-    return asr, backend
+    diarizer = Diarizer()
+    diarizer.load(device, hf_token)
+    return asr, diarizer
 
 
 def record_until_enter() -> np.ndarray:
@@ -59,7 +102,7 @@ def record_until_enter() -> np.ndarray:
 
 
 def transcribe_segments(
-    audio: np.ndarray, asr, diarizer: DiarizationBackend
+    audio: np.ndarray, asr, diarizer: Diarizer
 ) -> list[tuple[str, str]]:
     segments = diarizer.diarize(audio, SAMPLE_RATE)
 
