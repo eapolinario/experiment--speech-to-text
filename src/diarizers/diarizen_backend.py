@@ -23,8 +23,9 @@ class DiariZenBackend(DiarizationBackend):
     def load(self, device: str, hf_token: str | None = None) -> None:
         from diarizen.pipelines.inference import DiariZenPipeline
 
+        import torch
         self._pipeline = DiariZenPipeline.from_pretrained(MODEL_ID)
-        self._pipeline.to(device)
+        self._pipeline.to(torch.device(device))
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
         if self._pipeline is None:
