@@ -11,12 +11,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# TODO: restore diarizen extra once the package is available on PyPI
-diarizen = ["soundfile"]
 nemo = ["nemo_toolkit[asr]", "soundfile"]
-# whisperx requires torch~=2.8 which conflicts with torch>=2.10; use backends/whisperx/ instead
-# TODO: add diarizen back once it's available on PyPI
-all = ["nemo_toolkit[asr]", "soundfile"]
+# whisperx pulls in torchcodec; torch>=2.10 satisfies torchcodec>=0.10 so no override needed.
+whisperx = ["whisperx>=3.8", "soundfile"]
+all = ["nemo_toolkit[asr]", "soundfile", "whisperx>=3.8"]
 
 [tool.uv]
 # Exclude Windows: no cp313 wheels for several audio/ML dependencies

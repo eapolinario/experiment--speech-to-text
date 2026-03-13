@@ -7,10 +7,6 @@ BACKENDS: dict[str, tuple[str, str]] = {
         "src.diarizers.pyannote_backend",
         "PyannoteBackend",
     ),
-    "diarizen": (
-        "src.diarizers.diarizen_backend",
-        "DiariZenBackend",
-    ),
     "nemo": (
         "src.diarizers.nemo_backend",
         "NeMoSortformerBackend",
