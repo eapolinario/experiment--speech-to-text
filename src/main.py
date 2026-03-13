@@ -100,7 +100,7 @@ def load_models(hf_token: str | None):
         "automatic-speech-recognition",
         model=ASR_MODEL,
         device=device,
-        generate_kwargs={"language": "en", "task": "transcribe"},
+        generate_kwargs={"language": "portuguese", "task": "transcribe"},
     )
     diarizer = Diarizer()
     diarizer.load(device, hf_token)
