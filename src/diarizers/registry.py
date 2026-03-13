@@ -7,14 +7,6 @@ BACKENDS: dict[str, tuple[str, str]] = {
         "src.diarizers.pyannote_backend",
         "PyannoteBackend",
     ),
-    "nemo": (
-        "src.diarizers.nemo_backend",
-        "NeMoSortformerBackend",
-    ),
-    "nemo-streaming": (
-        "src.diarizers.nemo_backend",
-        "NeMoSortformerBackend",
-    ),
 }
 
 

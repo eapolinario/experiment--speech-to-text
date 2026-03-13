@@ -10,9 +10,6 @@ dependencies = [
   "python-dotenv>=1.0",
 ]
 
-[project.optional-dependencies]
-nemo = ["nemo_toolkit[asr]", "soundfile"]
-all = ["nemo_toolkit[asr]", "soundfile"]
 
 [tool.uv]
 # Exclude Windows: no cp313 wheels for several audio/ML dependencies
