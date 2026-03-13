@@ -48,9 +48,14 @@ def record_until_enter() -> np.ndarray:
     audio = np.concatenate(frames).flatten()
 
     if device_rate != SAMPLE_RATE:
-        import torchaudio.functional as F
-
-        audio = F.resample(torch.from_numpy(audio), device_rate, SAMPLE_RATE).numpy()
+        # Resample using torch to avoid depending on torchaudio as a transitive dependency.
+        audio_tensor = torch.from_numpy(np.ascontiguousarray(audio)).unsqueeze(0).unsqueeze(0)  # shape: (1, 1, T)
+        orig_len = audio_tensor.shape[-1]
+        new_len = int(round(orig_len * SAMPLE_RATE / device_rate))
+        audio_resampled = torch.nn.functional.interpolate(
+            audio_tensor, size=new_len, mode="linear", align_corners=False
+        )
+        audio = audio_resampled.squeeze().numpy()
 
     return audio
 

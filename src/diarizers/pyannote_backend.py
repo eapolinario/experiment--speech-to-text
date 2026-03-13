@@ -31,12 +31,20 @@ class PyannoteBackend(DiarizationBackend):
 
         for chunk_start in range(0, len(audio), chunk_samples):
             chunk = audio[chunk_start : chunk_start + chunk_samples]
-            waveform = torch.tensor(chunk).unsqueeze(0)
+            # Sliced chunks may be non-contiguous; ensure contiguous float32 for zero-copy transfer.
+            chunk_np = np.ascontiguousarray(chunk, dtype=np.float32)
+            waveform = torch.from_numpy(chunk_np).unsqueeze(0)
             result = self._pipeline({"waveform": waveform, "sample_rate": sample_rate})
 
             annotation = result.speaker_diarization
-            # speaker_embeddings rows are ordered to match annotation.labels()
-            chunk_embeddings = dict(zip(annotation.labels(), result.speaker_embeddings))
+            # Convert embeddings to CPU numpy arrays before label matching.
+            chunk_embeddings: dict[str, np.ndarray] = {}
+            for label, emb in zip(annotation.labels(), result.speaker_embeddings):
+                if isinstance(emb, torch.Tensor):
+                    emb_np = emb.detach().cpu().numpy()
+                else:
+                    emb_np = np.asarray(emb)
+                chunk_embeddings[label] = emb_np
             label_map = match_speakers(chunk_embeddings, global_registry)
 
             offset = chunk_start / sample_rate
