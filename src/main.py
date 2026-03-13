@@ -1,3 +1,4 @@
+import contextlib
 import os
 import tempfile
 import warnings
@@ -39,6 +40,11 @@ class Diarizer:
     budget), pass device="cpu" to load_models().
     """
 
+    # Number of float32 samples converted to int16 per write call (~1 s at 16 kHz).
+    # Writing in chunks keeps only a small int16 slice in memory at a time instead
+    # of allocating a full-recording int16 copy alongside the float32 source array.
+    _WAV_CHUNK = 16_384
+
     def __init__(self) -> None:
         self._pipeline: SpeakerDiarization | None = None
 
@@ -56,7 +62,8 @@ class Diarizer:
 
         # Write to a temp WAV so diart can stream it in fixed-size windows.
         # stdlib wave module writes 16-bit PCM; no extra dependency needed.
-        pcm = (audio * 32767).clip(-32768, 32767).astype(np.int16)
+        # Conversion is done in chunks to avoid materialising a full int16 copy of
+        # the entire recording alongside the float32 source array.
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             tmp_path = f.name
         try:
@@ -64,13 +71,18 @@ class Diarizer:
                 wf.setnchannels(1)
                 wf.setsampwidth(2)
                 wf.setframerate(sample_rate)
-                wf.writeframes(pcm.tobytes())
+                for offset in range(0, len(audio), self._WAV_CHUNK):
+                    chunk = audio[offset : offset + self._WAV_CHUNK]
+                    wf.writeframes(
+                        (chunk * 32767).clip(-32768, 32767).astype(np.int16).tobytes()
+                    )
 
             source = FileAudioSource(tmp_path, sample_rate=sample_rate)
             inference = StreamingInference(self._pipeline, source, do_plot=False)
             annotation = inference()
         finally:
-            os.unlink(tmp_path)
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
 
         return [
             DiarizationSegment(speaker=speaker, start=turn.start, end=turn.end)
