@@ -40,10 +40,10 @@ class Diarizer:
     budget), pass device="cpu" to load_models().
     """
 
-    # Number of float32 samples converted to int16 per write call (~1 s at 16 kHz).
+    # Number of float32 samples converted to int16 per write call (1 s at 16 kHz).
     # Writing in chunks keeps only a small int16 slice in memory at a time instead
     # of allocating a full-recording int16 copy alongside the float32 source array.
-    _WAV_CHUNK = 16_384
+    _WAV_CHUNK = 16_000
 
     def __init__(self) -> None:
         self._pipeline: SpeakerDiarization | None = None

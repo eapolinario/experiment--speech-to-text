@@ -72,6 +72,32 @@ def test_diarize_writes_wav_with_correct_params():
     assert not os.path.exists(captured["path"])
 
 
+def test_diarize_writes_wav_in_multiple_chunks():
+    """diarize() writes all samples even when audio exceeds _WAV_CHUNK size."""
+    diarizer = Diarizer()
+    diarizer._pipeline = MagicMock()
+
+    annotation = MagicMock()
+    annotation.itertracks.return_value = []
+
+    captured = {}
+
+    def fake_source(path, sample_rate):
+        with wave.open(path, "rb") as wf:
+            captured["nframes"] = wf.getnframes()
+        return MagicMock()
+
+    # Use audio longer than _WAV_CHUNK (16_000) to exercise multi-chunk path
+    n_samples = Diarizer._WAV_CHUNK * 3 + 500
+    with patch("src.main.FileAudioSource", side_effect=fake_source), \
+         patch("src.main.StreamingInference") as mock_inf_cls:
+        mock_inf_cls.return_value.return_value = annotation
+        audio = np.zeros(n_samples, dtype=np.float32)
+        diarizer.diarize(audio, 16_000)
+
+    assert captured["nframes"] == n_samples
+
+
 def test_diarize_cleans_up_on_inference_error():
     """Temp WAV file is deleted even when inference() raises."""
     diarizer = Diarizer()
