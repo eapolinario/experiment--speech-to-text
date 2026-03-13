@@ -37,14 +37,22 @@ def load_models(hf_token: str | None, backend_name: str):
 
 def record_until_enter() -> np.ndarray:
     frames = []
+    device_rate = int(sd.query_devices(kind="input")["default_samplerate"])
 
     def callback(indata, _frame_count, _time, _status):
         frames.append(indata.copy())
 
-    with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32", callback=callback):
+    with sd.InputStream(samplerate=device_rate, channels=1, dtype="float32", callback=callback):
         input("  [recording] Press Enter to stop...")
 
-    return np.concatenate(frames).flatten()
+    audio = np.concatenate(frames).flatten()
+
+    if device_rate != SAMPLE_RATE:
+        import torchaudio.functional as F
+
+        audio = F.resample(torch.from_numpy(audio), device_rate, SAMPLE_RATE).numpy()
+
+    return audio
 
 
 def transcribe_segments(

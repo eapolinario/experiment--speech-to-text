@@ -8,8 +8,12 @@ Requires: pip install whisperx
 """
 
 import numpy as np
+import pandas as pd
 
 from src.diarizers.base import DiarizationBackend, DiarizationSegment
+from src.diarizers.speaker_matching import match_speakers
+
+CHUNK_DURATION = 30  # seconds per diarization chunk to stay within GPU memory
 
 
 class WhisperXBackend(DiarizationBackend):
@@ -30,15 +34,39 @@ class WhisperXBackend(DiarizationBackend):
         self._device = device
         self._hf_token = hf_token
 
-        # Use lower precision on CUDA for better performance; float32 elsewhere.
+        # int8_float16 uses significantly less VRAM than float16 on CUDA.
         if "cuda" in device.lower():
-            compute_type = "float16"
+            compute_type = "int8_float16"
         else:
             compute_type = "float32"
 
         self._model = whisperx.load_model(
             self._asr_model_name, device=device, compute_type=compute_type
         )
+
+    def _diarize_chunked(self, audio: np.ndarray, diarize_model) -> pd.DataFrame:
+        """Run diarization in 30s chunks and reconcile speaker labels across chunks."""
+        chunk_samples = CHUNK_DURATION * 16_000  # whisperx always uses 16kHz
+        global_registry: list[tuple[str, np.ndarray]] = []
+        frames = []
+
+        for chunk_start in range(0, len(audio), chunk_samples):
+            chunk = audio[chunk_start : chunk_start + chunk_samples]
+            df, embeddings = diarize_model(chunk, return_embeddings=True)
+
+            if embeddings:
+                label_map = match_speakers(
+                    {spk: np.array(emb) for spk, emb in embeddings.items()},
+                    global_registry,
+                )
+                df["speaker"] = df["speaker"].map(label_map)
+
+            offset = chunk_start / 16_000
+            df["start"] += offset
+            df["end"] += offset
+            frames.append(df)
+
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
     def _run_pipeline(self, audio: np.ndarray) -> dict:
         """Run the full WhisperX pipeline and return the result with speaker labels."""
@@ -47,10 +75,16 @@ class WhisperXBackend(DiarizationBackend):
         if self._model is None:
             raise RuntimeError("Call load() first")
 
+        import gc
+        import torch
+
         # WhisperX expects a float32 numpy array.
         audio = np.asarray(audio, dtype=np.float32)
 
-        result = self._model.transcribe(audio, batch_size=16)
+        result = self._model.transcribe(audio, batch_size=4)
+
+        # Free GPU memory from transcription before loading the alignment model.
+        torch.cuda.empty_cache()
 
         # Align for word-level timestamps.
         align_model, metadata = whisperx.load_align_model(
@@ -59,12 +93,19 @@ class WhisperXBackend(DiarizationBackend):
         result = whisperx.align(
             result["segments"], align_model, metadata, audio, self._device
         )
+        del align_model
+        gc.collect()
+        torch.cuda.empty_cache()
 
-        # Run diarization and assign speakers to words.
-        diarize_model = whisperx.DiarizationPipeline(
-            use_auth_token=self._hf_token, device=self._device
+        # Run diarization in chunks and assign speakers to words.
+        diarize_model = whisperx.diarize.DiarizationPipeline(
+            token=self._hf_token, device=self._device
         )
-        diarize_segments = diarize_model(audio)
+        diarize_segments = self._diarize_chunked(audio, diarize_model)
+        del diarize_model
+        gc.collect()
+        torch.cuda.empty_cache()
+
         return whisperx.assign_word_speakers(diarize_segments, result)
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
