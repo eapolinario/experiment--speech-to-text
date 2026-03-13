@@ -1,18 +1,19 @@
 [project]
 name = "experiment-text-to-speech"
 version = "0.1.0"
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.12,<3.13"
 dependencies = [
   "transformers>=4.40",
-  "torch>=2.10",
+  "torch>=2.0,<2.6",
+  "torchaudio>=2.0,<2.6",
   "sounddevice>=0.4",
-  "pyannote.audio>=4.0",
+  "diart>=0.9",
   "python-dotenv>=1.0",
 ]
 
 
 [tool.uv]
-# Exclude Windows: no cp313 wheels for several audio/ML dependencies
+# Exclude Windows: no cp312 wheels for several audio/ML dependencies
 environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 
 [tool.pytest.ini_options]

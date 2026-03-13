@@ -1,17 +1,20 @@
 import os
+import tempfile
 import warnings
+import wave
 from dataclasses import dataclass
 
 import numpy as np
 import sounddevice as sd
 import torch
 from dotenv import load_dotenv
-from pyannote.audio import Pipeline
+from diart import SpeakerDiarization, SpeakerDiarizationConfig
+from diart.inference import StreamingInference
+from diart.sources import FileAudioSource
 from transformers import pipeline as hf_pipeline
 
 SAMPLE_RATE = 16_000
 ASR_MODEL = "openai/whisper-large-v3-turbo"
-DIARIZER_MODEL = "pyannote/speaker-diarization-community-1"
 
 
 @dataclass
@@ -24,40 +27,54 @@ class DiarizationSegment:
 
 
 class Diarizer:
-    """Wraps pyannote/speaker-diarization-community-1.
+    """Wraps diart's SpeakerDiarization for offline recordings.
 
-    Streaming is not possible: the model uses VBx clustering (AHC followed by
-    iterative Variational Bayes over all speaker embeddings), which is a batch
-    algorithm that requires the complete embedding matrix before it can assign
-    any speaker labels. The full audio must therefore be collected before
-    diarization starts.
+    Streaming is not possible with the underlying VBx-based pyannote batch
+    pipeline, but diart uses NearestMeansClustering — an online algorithm —
+    so it processes audio in a sliding window without needing all embeddings
+    in memory at once.  This bounds GPU/CPU memory to the window size
+    regardless of recording length.
 
-    Neural network inference (segmentation and embedding) does use a sliding
-    window internally, so GPU/CPU compute is bounded regardless of recording
-    length. Memory is not, however: the full audio waveform stays in CPU RAM
-    throughout (~230 MB/hour at 16 kHz float32, on top of ~4 GB of model
-    weights). For GPU VRAM OOM pass device="cpu" to load_models(); for CPU RAM
-    OOM the only options are shorter recordings or more RAM.
+    For GPU VRAM OOM (e.g. on a 4 GB card where model weights alone fill the
+    budget), pass device="cpu" to load_models().
     """
 
     def __init__(self) -> None:
-        self._pipeline: Pipeline | None = None
+        self._pipeline: SpeakerDiarization | None = None
 
     def load(self, device: str, hf_token: str | None = None) -> None:
-        self._pipeline = Pipeline.from_pretrained(DIARIZER_MODEL, token=hf_token)
-        self._pipeline.to(torch.device(device))
+        import huggingface_hub
+
+        if hf_token:
+            huggingface_hub.login(token=hf_token, add_to_git_credential=False)
+        config = SpeakerDiarizationConfig(device=torch.device(device))
+        self._pipeline = SpeakerDiarization(config)
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
         if self._pipeline is None:
             raise RuntimeError("Call load() first")
 
-        audio_np = np.ascontiguousarray(audio, dtype=np.float32)
-        waveform = torch.from_numpy(audio_np).unsqueeze(0)
-        result = self._pipeline({"waveform": waveform, "sample_rate": sample_rate})
+        # Write to a temp WAV so diart can stream it in fixed-size windows.
+        # stdlib wave module writes 16-bit PCM; no extra dependency needed.
+        pcm = (audio * 32767).clip(-32768, 32767).astype(np.int16)
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            tmp_path = f.name
+        try:
+            with wave.open(tmp_path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                wf.writeframes(pcm.tobytes())
+
+            source = FileAudioSource(tmp_path, sample_rate=sample_rate)
+            inference = StreamingInference(self._pipeline, source, do_plot=False)
+            annotation = inference()
+        finally:
+            os.unlink(tmp_path)
 
         return [
             DiarizationSegment(speaker=speaker, start=turn.start, end=turn.end)
-            for turn, _, speaker in result.speaker_diarization.itertracks(yield_label=True)
+            for turn, _, speaker in annotation.itertracks(yield_label=True)
         ]
 
 
