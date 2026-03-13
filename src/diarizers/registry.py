@@ -15,10 +15,6 @@ BACKENDS: dict[str, tuple[str, str]] = {
         "src.diarizers.nemo_backend",
         "NeMoSortformerBackend",
     ),
-    "whisperx": (
-        "src.diarizers.whisperx_backend",
-        "WhisperXBackend",
-    ),
 }
 
 
