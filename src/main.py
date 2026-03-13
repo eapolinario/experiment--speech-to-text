@@ -26,24 +26,18 @@ class DiarizationSegment:
 class Diarizer:
     """Wraps pyannote/speaker-diarization-community-1.
 
-    The full audio is passed to the pipeline in one call so that pyannote's
-    internal global clustering produces coherent speaker labels. Manual
-    chunking is intentionally avoided: splitting audio before the clustering
-    step forces independent per-chunk label assignment and undermines speaker
-    consistency across the recording.
+    Streaming is not possible: the model uses VBx clustering (AHC followed by
+    iterative Variational Bayes over all speaker embeddings), which is a batch
+    algorithm that requires the complete embedding matrix before it can assign
+    any speaker labels. The full audio must therefore be collected before
+    diarization starts.
 
-    pyannote does use a sliding window internally for neural network inference
-    (segmentation and embedding), so GPU/CPU compute is bounded regardless of
-    recording length.  However, the complete audio waveform must remain in CPU
-    RAM as the source for those window crops; memory therefore scales linearly
-    with duration (~230 MB/hour at 16 kHz float32, on top of model weights).
-
-    Two distinct OOM scenarios exist:
-    - GPU VRAM OOM: model weights plus per-batch activations exceed VRAM.
-      Fix: pass device="cpu" to load_models().
-    - CPU RAM OOM: the audio waveform itself exceeds available system memory.
-      device="cpu" does NOT help here; the only mitigations are keeping
-      recordings shorter or running on a machine with more RAM.
+    Neural network inference (segmentation and embedding) does use a sliding
+    window internally, so GPU/CPU compute is bounded regardless of recording
+    length. Memory is not, however: the full audio waveform stays in CPU RAM
+    throughout (~230 MB/hour at 16 kHz float32, on top of ~4 GB of model
+    weights). For GPU VRAM OOM pass device="cpu" to load_models(); for CPU RAM
+    OOM the only options are shorter recordings or more RAM.
     """
 
     def __init__(self) -> None:
