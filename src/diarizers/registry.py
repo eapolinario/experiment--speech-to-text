@@ -22,6 +22,4 @@ def get_backend(name: str) -> DiarizationBackend:
     mod = importlib.import_module(module_path)
     cls = getattr(mod, class_name)
 
-    if name == "nemo-streaming":
-        return cls(streaming=True)
     return cls()

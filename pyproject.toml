@@ -15,6 +15,9 @@ dependencies = [
 # Exclude Windows: no cp313 wheels for several audio/ML dependencies
 environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
 [dependency-groups]
 dev = [
   "pytest>=8",
