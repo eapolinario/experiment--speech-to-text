@@ -51,6 +51,8 @@ class Diarizer:
             embedding=EmbeddingModel.from_pretrained(
                 "pyannote/embedding", use_hf_token=hf_token
             ),
+            duration=2.0,   # window size; default 5 s would skip recordings < 5 s
+            step=0.5,
             device=torch.device(device),
         )
         self._pipeline = SpeakerDiarization(config)
@@ -77,6 +79,8 @@ class Diarizer:
         finally:
             os.unlink(tmp_path)
 
+        if annotation is None:
+            return []
         return [
             DiarizationSegment(speaker=speaker, start=turn.start, end=turn.end)
             for turn, _, speaker in annotation.itertracks(yield_label=True)
