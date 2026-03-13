@@ -32,8 +32,18 @@ class Diarizer:
     step forces independent per-chunk label assignment and undermines speaker
     consistency across the recording.
 
-    For very long recordings that cause GPU OOM, pass device="cpu" rather than
-    re-introducing chunking.
+    pyannote does use a sliding window internally for neural network inference
+    (segmentation and embedding), so GPU/CPU compute is bounded regardless of
+    recording length.  However, the complete audio waveform must remain in CPU
+    RAM as the source for those window crops; memory therefore scales linearly
+    with duration (~230 MB/hour at 16 kHz float32, on top of model weights).
+
+    Two distinct OOM scenarios exist:
+    - GPU VRAM OOM: model weights plus per-batch activations exceed VRAM.
+      Fix: pass device="cpu" to load_models().
+    - CPU RAM OOM: the audio waveform itself exceeds available system memory.
+      device="cpu" does NOT help here; the only mitigations are keeping
+      recordings shorter or running on a machine with more RAM.
     """
 
     def __init__(self) -> None:
