@@ -56,7 +56,6 @@ def record_until_enter() -> np.ndarray:
             audio_tensor, size=new_len, mode="linear", align_corners=False
         )
         audio = audio_resampled.squeeze().numpy()
-
     return audio
 
 
