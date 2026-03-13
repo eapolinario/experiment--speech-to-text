@@ -1,17 +1,22 @@
+import contextlib
 import os
+import tempfile
 import warnings
+import wave
 from dataclasses import dataclass
 
 import numpy as np
 import sounddevice as sd
 import torch
 from dotenv import load_dotenv
-from pyannote.audio import Pipeline
+from diart import SpeakerDiarization, SpeakerDiarizationConfig
+from diart.inference import StreamingInference
+from diart.models import EmbeddingModel, SegmentationModel
+from diart.sources import FileAudioSource
 from transformers import pipeline as hf_pipeline
 
 SAMPLE_RATE = 16_000
 ASR_MODEL = "openai/whisper-large-v3-turbo"
-DIARIZER_MODEL = "pyannote/speaker-diarization-community-1"
 
 
 @dataclass
@@ -24,36 +29,73 @@ class DiarizationSegment:
 
 
 class Diarizer:
-    """Wraps pyannote/speaker-diarization-community-1.
+    """Wraps diart's SpeakerDiarization for offline recordings.
 
-    The full audio is passed to the pipeline in one call so that pyannote's
-    internal global clustering produces coherent speaker labels. Manual
-    chunking is intentionally avoided: splitting audio before the clustering
-    step forces independent per-chunk label assignment and undermines speaker
-    consistency across the recording.
+    Streaming is not possible with the underlying VBx-based pyannote batch
+    pipeline, but diart uses NearestMeansClustering — an online algorithm —
+    so it processes audio in a sliding window without needing all embeddings
+    in memory at once.  This bounds GPU/CPU memory to the window size
+    regardless of recording length.
 
-    For very long recordings that cause GPU OOM, pass device="cpu" rather than
-    re-introducing chunking.
+    For GPU VRAM OOM (e.g. on a 4 GB card where model weights alone fill the
+    budget), pass device="cpu" to load_models().
     """
 
+    # Number of float32 samples converted to int16 per write call (1 s at 16 kHz).
+    # Writing in chunks keeps only a small int16 slice in memory at a time instead
+    # of allocating a full-recording int16 copy alongside the float32 source array.
+    _WAV_CHUNK = 16_000
+
     def __init__(self) -> None:
-        self._pipeline: Pipeline | None = None
+        self._pipeline: SpeakerDiarization | None = None
 
     def load(self, device: str, hf_token: str | None = None) -> None:
-        self._pipeline = Pipeline.from_pretrained(DIARIZER_MODEL, token=hf_token)
-        self._pipeline.to(torch.device(device))
+        config = SpeakerDiarizationConfig(
+            segmentation=SegmentationModel.from_pretrained(
+                "pyannote/segmentation", use_hf_token=hf_token
+            ),
+            embedding=EmbeddingModel.from_pretrained(
+                "pyannote/embedding", use_hf_token=hf_token
+            ),
+            duration=2.0,   # window size; default 5 s would skip recordings < 5 s
+            step=0.5,
+            device=torch.device(device),
+        )
+        self._pipeline = SpeakerDiarization(config)
 
     def diarize(self, audio: np.ndarray, sample_rate: int) -> list[DiarizationSegment]:
         if self._pipeline is None:
             raise RuntimeError("Call load() first")
 
-        audio_np = np.ascontiguousarray(audio, dtype=np.float32)
-        waveform = torch.from_numpy(audio_np).unsqueeze(0)
-        result = self._pipeline({"waveform": waveform, "sample_rate": sample_rate})
+        # Write to a temp WAV so diart can stream it in fixed-size windows.
+        # stdlib wave module writes 16-bit PCM; no extra dependency needed.
+        # Conversion is done in chunks to avoid materialising a full int16 copy of
+        # the entire recording alongside the float32 source array.
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+            tmp_path = f.name
+        try:
+            with wave.open(tmp_path, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                for offset in range(0, len(audio), self._WAV_CHUNK):
+                    chunk = audio[offset : offset + self._WAV_CHUNK]
+                    wf.writeframes(
+                        (chunk * 32767).clip(-32768, 32767).astype(np.int16).tobytes()
+                    )
 
+            source = FileAudioSource(tmp_path, sample_rate=sample_rate)
+            inference = StreamingInference(self._pipeline, source, do_plot=False)
+            annotation = inference()
+        finally:
+            with contextlib.suppress(OSError):
+                os.unlink(tmp_path)
+
+        if annotation is None:
+            return []
         return [
             DiarizationSegment(speaker=speaker, start=turn.start, end=turn.end)
-            for turn, _, speaker in result.speaker_diarization.itertracks(yield_label=True)
+            for turn, _, speaker in annotation.itertracks(yield_label=True)
         ]
 
 
@@ -70,7 +112,7 @@ def load_models(hf_token: str | None):
         "automatic-speech-recognition",
         model=ASR_MODEL,
         device=device,
-        generate_kwargs={"language": "en", "task": "transcribe"},
+        generate_kwargs={"language": "portuguese", "task": "transcribe"},
     )
     diarizer = Diarizer()
     diarizer.load(device, hf_token)
