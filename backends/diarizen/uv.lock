@@ -376,7 +376,7 @@ requires-dist = [
     { name = "h5py" },
     { name = "librosa" },
     { name = "numpy", specifier = "<2.0" },
-    { name = "pyannote-audio", specifier = ">=3.1,<4.0" },
+    { name = "pyannote-audio", git = "https://github.com/BUTSpeechFIT/DiariZen?subdirectory=pyannote-audio" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "sounddevice", specifier = ">=0.4" },
     { name = "soundfile" },
@@ -1285,7 +1285,7 @@ wheels = [
 [[package]]
 name = "pyannote-audio"
 version = "3.1.1"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/BUTSpeechFIT/DiariZen?subdirectory=pyannote-audio#510d2fe39cbf02e38b9e87ef2154e274d5ef9af0" }
 dependencies = [
     { name = "asteroid-filterbanks", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "einops", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -1306,10 +1306,6 @@ dependencies = [
     { name = "torch-audiomentations", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "torchaudio", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "torchmetrics", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/8d/c6920c1c1fe439bee72c591297c69d32fe27218a96fd708e4d2274d5462c/pyannote.audio-3.1.1.tar.gz", hash = "sha256:b6562d46b5d5d616c1887cafd5aab3f7d19ecf6b3312fc6c4f72f37332fcd408", size = 14805981, upload-time = "2023-12-01T13:24:25.729Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/f5/11/611c32f7b7894ba588ade502525d0130f3e731d15f925e9f2a1ae66c8680/pyannote.audio-3.1.1-py2.py3-none-any.whl", hash = "sha256:52f86cba990c0afaffecd7ecb84aff79709a51923462ae8a44d6ac4d2010836a", size = 208677, upload-time = "2023-12-01T13:24:23.756Z" },
 ]
 
 [[package]]

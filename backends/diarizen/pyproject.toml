@@ -7,7 +7,7 @@ dependencies = [
   "torch>=2.1,<2.2",
   "torchaudio>=2.1,<2.2",
   "sounddevice>=0.4",
-  "pyannote.audio>=3.1,<4.0",
+  "pyannote.audio",
   "python-dotenv>=1.0",
   "soundfile",
   "diarizen",
@@ -21,6 +21,9 @@ dependencies = [
 
 [tool.uv.sources]
 diarizen = { git = "https://github.com/BUTSpeechFIT/DiariZen" }
+# DiariZen bundles a patched pyannote-audio fork that adds `config` and
+# `seg_duration` to SpeakerDiarization.__init__; the PyPI releases don't have this.
+pyannote-audio = { git = "https://github.com/BUTSpeechFIT/DiariZen", subdirectory = "pyannote-audio" }
 
 [tool.uv]
 environments = ["sys_platform == 'linux'", "sys_platform == 'darwin'"]
