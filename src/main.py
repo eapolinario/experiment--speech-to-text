@@ -1,5 +1,6 @@
 import argparse
 import os
+import warnings
 
 import numpy as np
 import sounddevice as sd
@@ -29,7 +30,12 @@ def load_models(hf_token: str | None, backend_name: str):
     if backend_name == "whisperx":
         asr = None
     else:
-        asr = hf_pipeline("automatic-speech-recognition", model=ASR_MODEL, device=device)
+        asr = hf_pipeline(
+            "automatic-speech-recognition",
+            model=ASR_MODEL,
+            device=device,
+            generate_kwargs={"language": "en", "task": "transcribe"},
+        )
 
     backend.load(device, hf_token)
     return asr, backend
@@ -96,6 +102,14 @@ def parse_args(argv: list[str] | None = None):
 
 
 def main():
+    # Suppress noisy third-party warnings that we cannot fix upstream.
+    warnings.filterwarnings("ignore", category=UserWarning, module=r"pyannote\..*")
+    warnings.filterwarnings("ignore", message=r".*return_token_timestamps.*")
+    warnings.filterwarnings("ignore", message=r".*forced_decoder_ids.*")
+    warnings.filterwarnings("ignore", message=r".*multilingual Whisper.*")
+    warnings.filterwarnings("ignore", message=r".*Mean of empty slice.*", category=RuntimeWarning)
+    warnings.filterwarnings("ignore", message=r".*invalid value encountered in divide.*", category=RuntimeWarning)
+
     args = parse_args()
     load_dotenv()
     hf_token = os.environ.get("HF_TOKEN")
